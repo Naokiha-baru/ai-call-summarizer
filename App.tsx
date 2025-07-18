@@ -1,45 +1,36 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Header } from './components/Header';
 import { InputPanel } from './components/InputPanel';
 import { OutputPanel } from './components/OutputPanel';
 import { ApiKeyPanel } from './components/ApiKeyPanel';
-import { summarizeCall, transcribeAndSummarizeAudio } from './services/geminiService';
-import type { Summary } from './types';
+import { summarizeCallStream, transcribeAndSummarizeAudioStream } from './services/geminiService';
 
 function App() {
   const [transcript, setTranscript] = useState<string>('');
-  const [summary, setSummary] = useState<Summary | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [apiKey, setApiKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('gemini_api_key');
-    if (savedApiKey) {
-      setApiKey(savedApiKey);
-    }
-  }, []);
+  const [apiKey, setApiKey] = useState<string | null>(() => localStorage.getItem('gemini-api-key'));
 
   const handleSaveApiKey = useCallback((key: string) => {
     if (key.trim()) {
-      setApiKey(key);
-      localStorage.setItem('gemini_api_key', key);
-      alert('APIキーを保存しました。');
+      const trimmedKey = key.trim();
+      localStorage.setItem('gemini-api-key', trimmedKey);
+      setApiKey(trimmedKey);
     }
   }, []);
-  
+
   const handleClearApiKey = useCallback(() => {
-      setApiKey(null);
-      localStorage.removeItem('gemini_api_key');
-      alert('APIキーを削除しました。');
+    localStorage.removeItem('gemini-api-key');
+    setApiKey(null);
   }, []);
 
 
   const handleSummarize = useCallback(async () => {
     if (!apiKey) {
-      setError('APIキーが設定されていません。上の入力欄から設定してください。');
+      setError('Gemini APIキーを設定してください。');
       return;
     }
     if (!transcript.trim() && !audioFile) {
@@ -49,7 +40,7 @@ function App() {
 
     setIsLoading(true);
     setError(null);
-    setSummary(null);
+    setSummary(''); // Start with an empty string for streaming
 
     const fileToBase64 = (file: File): Promise<string> =>
       new Promise((resolve, reject) => {
@@ -60,14 +51,16 @@ function App() {
       });
 
     try {
-      let result;
-      if (audioFile) {
-        const base64Audio = await fileToBase64(audioFile);
-        result = await transcribeAndSummarizeAudio(apiKey, base64Audio, audioFile.type);
-      } else {
-        result = await summarizeCall(apiKey, transcript);
+      const stream = audioFile
+        ? transcribeAndSummarizeAudioStream(apiKey, await fileToBase64(audioFile), audioFile.type)
+        : summarizeCallStream(apiKey, transcript);
+
+      let fullResponse = "";
+      for await (const chunk of stream) {
+        fullResponse += chunk;
+        setSummary(fullResponse);
       }
-      setSummary(result);
+
     } catch (e) {
       console.error(e);
       const errorMessage = e instanceof Error ? e.message : '要約の生成中に不明なエラーが発生しました。';
@@ -81,26 +74,27 @@ function App() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans">
       <Header />
       <main className="container mx-auto p-4 md:p-8">
-        <ApiKeyPanel
+        <div className="space-y-8">
+          <ApiKeyPanel
             initialKey={apiKey}
             onSave={handleSaveApiKey}
             onClear={handleClearApiKey}
-        />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-          <InputPanel
-            transcript={transcript}
-            setTranscript={setTranscript}
-            onSummarize={handleSummarize}
-            isLoading={isLoading}
-            audioFile={audioFile}
-            setAudioFile={setAudioFile}
-            isApiKeySet={!!apiKey}
           />
-          <OutputPanel
-            summary={summary}
-            isLoading={isLoading}
-            error={error}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <InputPanel
+              transcript={transcript}
+              setTranscript={setTranscript}
+              onSummarize={handleSummarize}
+              isLoading={isLoading}
+              audioFile={audioFile}
+              setAudioFile={setAudioFile}
+            />
+            <OutputPanel
+              streamingContent={summary}
+              isLoading={isLoading}
+              error={error}
+            />
+          </div>
         </div>
       </main>
     </div>

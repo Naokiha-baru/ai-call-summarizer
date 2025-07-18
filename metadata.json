@@ -3,5 +3,6 @@
   "description": "An application that transcribes audio from a call and uses the Gemini API to summarize it into a structured format, including a reconstructed conversation, key points, and CRM entries.",
   "requestFramePermissions": [
     "microphone"
-  ]
+  ],
+  "prompt": ""
 }

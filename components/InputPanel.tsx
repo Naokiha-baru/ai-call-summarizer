@@ -9,10 +9,9 @@ interface InputPanelProps {
   isLoading: boolean;
   audioFile: File | null;
   setAudioFile: (file: File | null) => void;
-  isApiKeySet: boolean;
 }
 
-export const InputPanel: React.FC<InputPanelProps> = ({ transcript, setTranscript, onSummarize, isLoading, audioFile, setAudioFile, isApiKeySet }) => {
+export const InputPanel: React.FC<InputPanelProps> = ({ transcript, setTranscript, onSummarize, isLoading, audioFile, setAudioFile }) => {
   const { isListening, error: speechError, startListening, stopListening } = useSpeechRecognition(setTranscript);
 
   const clearAudioFile = useCallback(() => {
@@ -48,7 +47,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({ transcript, setTranscrip
   
   const hasText = transcript.trim().length > 0;
   const hasAudio = audioFile !== null;
-  const canInteract = isApiKeySet && !isLoading;
+  const canInteract = !isLoading;
 
   return (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-lg h-full flex flex-col">
@@ -57,7 +56,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({ transcript, setTranscrip
         <textarea
           value={transcript}
           onChange={handleTextChange}
-          placeholder={isApiKeySet ? "ここに通話記録を貼り付けるか、下のボタンで録音またはファイルをアップロードしてください..." : "APIキーを設定してください。"}
+          placeholder="ここに通話記録を貼り付けるか、下のボタンで録音またはファイルをアップロードしてください..."
           className="w-full flex-grow p-4 border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition duration-200 text-sm disabled:bg-slate-200 dark:disabled:bg-slate-700/50 disabled:cursor-not-allowed"
           rows={12}
           disabled={!canInteract || isListening || hasAudio}
